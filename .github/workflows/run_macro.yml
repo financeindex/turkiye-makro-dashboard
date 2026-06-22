@@ -1,7 +1,7 @@
 name: Makro Motoru Calistir
 
 on:
-  workflow_dispatch: # İşte tarayıcıya "Çalıştır" butonu koyan komut bu!
+  workflow_dispatch:
 
 jobs:
   run-pipeline:

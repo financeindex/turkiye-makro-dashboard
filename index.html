@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Türkiye Makro Bülten</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --border: #e2e4e8;
+    --text: #1d2129;
+    --text-muted: #6b7280;
+    --header: #1e3a5f;
+    --green: #0a7d3c;
+    --red: #c0392b;
+    --gray: #9aa0a6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    background: var(--header);
+    color: white;
+    padding: 24px 32px;
+  }
+  header h1 { margin: 0; font-size: 22px; font-weight: 500; }
+  header p { margin: 6px 0 0; font-size: 13px; color: #c8d3e0; }
+  main { max-width: 980px; margin: 24px auto; padding: 0 16px 48px; }
+  .group { margin-bottom: 28px; }
+  .group h2 {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 10px 4px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 14px;
+  }
+  th, td { padding: 10px 14px; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th {
+    background: #f9fafb;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 12px;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #fafbfc; }
+  .veri-adi { color: var(--text); }
+  .veri-tarih { display: block; font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .pozitif { color: var(--green); font-weight: 500; }
+  .negatif { color: var(--red); font-weight: 500; }
+  .notr { color: var(--gray); }
+  .placeholder { color: var(--gray); font-style: italic; font-size: 13px; }
+  .ozet { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+  .ozet .kutu {
+    background: var(--card); border: 1px solid var(--border); border-radius: 8px;
+    padding: 14px 18px; flex: 1; min-width: 140px;
+  }
+  .ozet .kutu .sayi { font-size: 22px; font-weight: 500; }
+  .ozet .kutu .etiket { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  footer { text-align: center; color: var(--text-muted); font-size: 12px; padding: 16px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Türkiye Makro Bülten</h1>
+  <p id="son-guncelleme">Veri yükleniyor...</p>
+</header>
+
+<main>
+  <div class="ozet" id="ozet"></div>
+  <div id="icerik"></div>
+</main>
+
+<footer>Kaynak: TCMB EVDS · Her hafta otomatik güncellenir</footer>
+
+<script>
+const FREKANS_SIRA = ["Haftalık", "Aylık", "Çeyreklik"];
+
+function degisimSiniflandir(degisim) {
+  if (degisim === null || degisim === undefined) return "notr";
+  return degisim >= 0 ? "pozitif" : "negatif";
+}
+
+function degisimGoster(degisim) {
+  if (degisim === null || degisim === undefined) return "—";
+  const ok = degisim >= 0 ? "▲" : "▼";
+  return `${ok} ${Math.abs(degisim).toFixed(1)}%`;
+}
+
+function sayiFormatla(deger) {
+  if (deger === null || deger === undefined) return "—";
+  return deger.toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+}
+
+function satirOlustur(g) {
+  const durum = g.durum;
+  if (durum === "ok" || durum === "kismi") {
+    return `
+      <tr>
+        <td class="veri-adi">${g.ad}${g.birim ? ` <span style="color:var(--text-muted);font-size:12px">(${g.birim})</span>` : ""}
+          ${g.tarih ? `<span class="veri-tarih">${g.tarih}</span>` : ""}
+        </td>
+        <td>${sayiFormatla(g.guncel)}</td>
+        <td>${sayiFormatla(g.onceki)}</td>
+        <td class="${degisimSiniflandir(g.degisim)}">${degisimGoster(g.degisim)}</td>
+      </tr>`;
+  }
+  const mesajlar = {
+    kod_gerekli: "EVDS seri kodu tanımlanmadı",
+    veri_yok: "EVDS'den veri dönmedi",
+    veri_yetersiz: "Yeterli geçmiş veri yok",
+    hata: "Veri çekilirken hata oluştu",
+  };
+  return `
+    <tr>
+      <td class="veri-adi">${g.ad}</td>
+      <td colspan="3" class="placeholder">${mesajlar[durum] || durum}</td>
+    </tr>`;
+}
+
+function gruplaVeRender(veriler) {
+  const icerik = document.getElementById("icerik");
+  icerik.innerHTML = "";
+
+  const gruplar = {};
+  for (const g of veriler) {
+    const f = g.frekans || "Diğer";
+    if (!gruplar[f]) gruplar[f] = [];
+    gruplar[f].push(g);
+  }
+
+  const sira = [...FREKANS_SIRA, ...Object.keys(gruplar).filter(f => !FREKANS_SIRA.includes(f))];
+
+  for (const frekans of sira) {
+    if (!gruplar[frekans]) continue;
+    const div = document.createElement("div");
+    div.className = "group";
+    div.innerHTML = `
+      <h2>${frekans}</h2>
+      <table>
+        <thead>
+          <tr><th>Veri</th><th>Güncel</th><th>Önceki</th><th>Değişim</th></tr>
+        </thead>
+        <tbody>
+          ${gruplar[frekans].map(satirOlustur).join("")}
+        </tbody>
+      </table>`;
+    icerik.appendChild(div);
+  }
+}
+
+function ozetOlustur(veriler) {
+  const ozet = document.getElementById("ozet");
+  const calisanlar = veriler.filter(g => g.durum === "ok" || g.durum === "kismi");
+  const toplam = veriler.length;
+  ozet.innerHTML = `
+    <div class="kutu"><div class="sayi">${calisanlar.length} / ${toplam}</div><div class="etiket">Aktif gösterge</div></div>
+    <div class="kutu"><div class="sayi">${veriler.filter(g => g.frekans === "Aylık").length}</div><div class="etiket">Aylık veri</div></div>
+    <div class="kutu"><div class="sayi">${veriler.filter(g => g.frekans === "Çeyreklik").length}</div><div class="etiket">Çeyreklik veri</div></div>
+  `;
+}
+
+fetch("./data/latest.json")
+  .then(r => {
+    if (!r.ok) throw new Error("latest.json bulunamadı");
+    return r.json();
+  })
+  .then(data => {
+    const tarih = new Date(data.olusturulma_zamani);
+    document.getElementById("son-guncelleme").textContent =
+      "Son güncelleme: " + tarih.toLocaleString("tr-TR");
+    ozetOlustur(data.veriler);
+    gruplaVeRender(data.veriler);
+  })
+  .catch(err => {
+    document.getElementById("son-guncelleme").textContent = "Veri henüz yok";
+    document.getElementById("icerik").innerHTML =
+      `<p class="placeholder">Henüz veri çekilmemiş. GitHub Actions sekmesinden "Haftalık makro veri güncelleme" işini elle tetikleyebilir veya bir hafta bekleyebilirsiniz. (${err.message})</p>`;
+  });
+</script>
+
+</body>
+</html>

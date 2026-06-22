@@ -1,0 +1,2 @@
+# Bu dosya docs/data/ klasörünün git'e dahil olmasını sağlar.
+# collect_data.py çalıştığında burada latest.json ve history.csv oluşacak.

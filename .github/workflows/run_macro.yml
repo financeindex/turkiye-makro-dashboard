@@ -1,0 +1,34 @@
+name: Makro Motoru Calistir
+
+on:
+  workflow_dispatch: # İşte tarayıcıya "Çalıştır" butonu koyan komut bu!
+
+jobs:
+  run-pipeline:
+    runs-ok: ubuntu-latest
+    steps:
+    - name: Repoyu Klonla
+      uses: actions/checkout@v3
+
+    - name: Python Kurulumu
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Bağımlılıkları Yükle
+      run: |
+        pip install pandas requests
+
+    - name: Python Kodunu Calistir
+      env:
+        EVDS_API_KEY: ${{ secrets.EVDS_API_KEY }}
+      run: |
+        python data_fetcher.py
+
+    - name: Olusan Verileri Repoya Kaydet
+      run: |
+        git config --global user.name "Macro Bot"
+        git config --global user.email "bot@macro.com"
+        git add data/*
+        git commit -m "EVDS Verileri Guncellendi" || exit 0
+        git push
